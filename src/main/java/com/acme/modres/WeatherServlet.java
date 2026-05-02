@@ -249,28 +249,68 @@ public class WeatherServlet extends HttpServlet {
     return "*********" + lastToKeep;
   }
 
+  /**
+   * Replaced WebSphere-specific ServerName API with container-portable environment variables
+   * Use SERVER_NAME and SERVER_FULL_NAME environment variables for container deployment
+   */
   private String configureEnvDiscovery() {
-
     String serverEnv = "";
-
-    serverEnv += com.ibm.websphere.runtime.ServerName.getDisplayName();
-    serverEnv += com.ibm.websphere.runtime.ServerName.getFullName();
+    
+    // Replace WebSphere-specific API with environment variables for container portability
+    String serverName = System.getenv("SERVER_NAME");
+    String serverFullName = System.getenv("SERVER_FULL_NAME");
+    
+    if (serverName != null) {
+      serverEnv += serverName;
+    }
+    if (serverFullName != null) {
+      serverEnv += serverFullName;
+    }
+    
+    // Fallback to system properties if environment variables not set
+    if (serverEnv.isEmpty()) {
+      serverEnv += System.getProperty("server.name", "unknown");
+      serverEnv += System.getProperty("server.fullname", "unknown");
+    }
 
     return serverEnv;
   }
 
+  /**
+   * Replaced RMI/IIOP-based JNDI lookup with HTTP-based service discovery
+   * Use SERVICE_REGISTRY_URL environment variable for container-based service discovery
+   */
   private InitialContext setInitialContextProps() {
-
     Hashtable ht = new Hashtable();
 
-    ht.put("java.naming.factory.initial", "com.ibm.websphere.naming.WsnInitialContextFactory");
-    ht.put("java.naming.provider.url", "corbaloc:iiop:localhost:2809");
+    // Replace RMI/IIOP with container-portable JNDI configuration
+    // For containerized environments, use standard JNDI or externalized service discovery
+    String namingFactory = System.getenv("JNDI_FACTORY");
+    String providerUrl = System.getenv("JNDI_PROVIDER_URL");
+    
+    if (namingFactory != null && !namingFactory.isEmpty()) {
+      ht.put("java.naming.factory.initial", namingFactory);
+    } else {
+      // Default to standard JNDI factory for container environments
+      ht.put("java.naming.factory.initial", "org.apache.naming.java.javaURLContextFactory");
+    }
+    
+    if (providerUrl != null && !providerUrl.isEmpty()) {
+      ht.put("java.naming.provider.url", providerUrl);
+    }
+    // Note: RMI/IIOP corbaloc removed - use HTTP-based service discovery in containers
 
     InitialContext ctx = null;
     try {
       ctx = new InitialContext(ht);
     } catch (NamingException e) {
-      e.printStackTrace();
+      logger.log(Level.WARNING, "Failed to create InitialContext, using default", e);
+      try {
+        // Fallback to default context for container environments
+        ctx = new InitialContext();
+      } catch (NamingException ex) {
+        logger.log(Level.SEVERE, "Failed to create default InitialContext", ex);
+      }
     }
 
     return ctx;

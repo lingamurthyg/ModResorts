@@ -1,25 +1,54 @@
 package com.acme.modres.db;
 
+import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
-import javax.ejb.Singleton;
-import javax.ejb.Startup;
+import javax.enterprise.context.ApplicationScoped;
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
-@Singleton
-@Startup
+/**
+ * Replaced @Singleton with @ApplicationScoped for container-portable state management
+ * For distributed caching across container instances, integrate with Redis/ElastiCache
+ * using environment variables: REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
+ */
+@ApplicationScoped
 public class ModResortsCustomerInformation {
   private static final String SELECT_CUSTOMERS_QUERY = "SELECT INFO FROM CUSTOMER";
 
   // Removing DB connection for ease of demo setup
   // @Resource(lookup = "jdbc/ModResortsJndi")
   private DataSource dataSource;
+  
+  // Replace singleton state with distributed cache-ready structure
+  // In production, replace this with Redis/ElastiCache client
+  private Map<String, ArrayList<String>> customerCache = new ConcurrentHashMap<>();
+  
+  @PostConstruct
+  public void init() {
+    // Initialize distributed cache connection if environment variables are set
+    String redisHost = System.getenv("REDIS_HOST");
+    String redisPort = System.getenv("REDIS_PORT");
+    
+    if (redisHost != null && redisPort != null) {
+      // TODO: Initialize Redis/ElastiCache client for distributed caching
+      // Example: redisClient = new JedisPool(redisHost, Integer.parseInt(redisPort));
+      System.out.println("Distributed cache configuration detected: " + redisHost + ":" + redisPort);
+    }
+  }
 
   public ArrayList<String> getCustomerInformation() {
+    // Check cache first (in production, this would be Redis/ElastiCache)
+    String cacheKey = "all_customers";
+    if (customerCache.containsKey(cacheKey)) {
+      return customerCache.get(cacheKey);
+    }
+    
     Connection conn = null;
     PreparedStatement stmt = null;
     ResultSet rs = null;
@@ -38,6 +67,9 @@ public class ModResortsCustomerInformation {
         String info = rs.getString("INFO");
         customerInfo.add(info);
       }
+      
+      // Store in cache (in production, use Redis with TTL)
+      customerCache.put(cacheKey, customerInfo);
 
     } catch (SQLException e) {
       e.printStackTrace();
@@ -55,5 +87,12 @@ public class ModResortsCustomerInformation {
       }
     }
     return customerInfo;
+  }
+  
+  /**
+   * Clear cache entry - in production, this would clear from Redis
+   */
+  public void clearCache() {
+    customerCache.clear();
   }
 }
