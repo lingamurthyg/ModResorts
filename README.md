@@ -1,109 +1,166 @@
-# ModResorts Demo Application
+# ModResorts Backend - Cloud-Ready Application
 
 ## Overview
-ModResorts (as per the `main` branch) is a IBM WebSphere Application Server web application. It is a simple application that can be used to demonstrate modernization of a IBM WebSphere Application Server to Liberty, as well as Java version upgrade scenarios.
-The Java source code is dependent on APIs that only exist on the IBM WebSphere Application Server and as such, this version of the application will only function correctly when deployed to IBM WebSphere Application Server. In order to successfully deploy to Liberty, code changes need to be made to the application. See [Liberty Versions of ModResorts](#liberty-versions-of-modresorts) below.
+This application has been modernized for cloud deployment on AWS. It is now packaged as an executable JAR with embedded Tomcat and uses cloud-native patterns.
 
+## Cloud Readiness Features
 
-## Building
+### 1. **Executable JAR Packaging**
+- Converted from WAR to executable JAR with embedded Tomcat
+- No external application server required
+- Ready for containerization on AWS ECS, EKS, or Fargate
 
-### IBM WebSphere Application Server Dependencies
-The `main` branch version of ModResorts has dependencies on WebSphere Application Server APIs. The `pom.xml` references the associated WAS dependency and to build the application, you will need to have the dependency available in a maven repository. The `was_public.jar` jar and its associated `pom` file can be found in your WebSphere installation. For example, in a typical installation, you might find them at the following location: `/opt/WebSphere/AppServer/dev`.
-You can install to your local maven repository (`$HOME/.m2`) using the following command:
+### 2. **AWS S3 Integration**
+- Replaced local file system operations with Amazon S3
+- All file writes and reads use S3 for durable, scalable storage
+- Configured via environment variables: `S3_BUCKET_NAME`, `AWS_REGION`
 
-```
-mvn install:install-file -Dfile=<some location>/was_public.jar -DpomFile=<some location>/was_public-9.0.0.pom
-```
+### 3. **AWS Secrets Manager**
+- Hardcoded API keys replaced with AWS Secrets Manager
+- Automatic secret retrieval and caching
+- Fallback to environment variables for local development
 
-For more information please see the [docs](https://www.ibm.com/docs/en/wasdtfe?topic=environment-installing-server-apis-into-maven-repository).
+### 4. **Distributed Session Management**
+- Integrated Spring Session with Redis (Amazon ElastiCache)
+- Removed WebSphere-specific session clustering
+- Enables horizontal scaling across multiple instances
 
-### Building Using Maven
-This is a standard single module maven application and the WAR can be built as follows:
+### 5. **Connection Pooling**
+- Replaced direct JDBC connections with HikariCP
+- Optimized for cloud database services (AWS RDS)
+- Configurable pool sizes via environment variables
 
-```
+### 6. **12-Factor App Compliance**
+- All configuration externalized to environment variables
+- No hardcoded credentials or file paths
+- Stateless application design
+
+### 7. **Modern Java Time API**
+- Migrated from `java.util.Date` to `java.time.LocalDate`
+- UTC standardization for distributed systems
+- Eliminates timezone-related issues
+
+### 8. **Resource Management**
+- Try-with-resources pattern for automatic cleanup
+- Prevents resource leaks in containerized environments
+- Proper connection, stream, and file handle management
+
+## Environment Variables
+
+### Required
+- `AWS_REGION`: AWS region (default: us-east-1)
+- `S3_BUCKET_NAME`: S3 bucket for file storage (default: modresorts-data)
+- `DATABASE_URL`: JDBC connection string
+- `DATABASE_USERNAME`: Database username
+- `DATABASE_PASSWORD`: Database password
+- `REDIS_HOST`: Redis host for session management
+- `REDIS_PORT`: Redis port (default: 6379)
+
+### Optional
+- `PORT`: Application port (default: 8080)
+- `WEATHER_API_KEY`: Weather API key (fallback if Secrets Manager unavailable)
+- `DB_POOL_SIZE`: Database connection pool size (default: 10)
+- `DB_POOL_MIN_IDLE`: Minimum idle connections (default: 2)
+
+## Building the Application
+
+```bash
 mvn clean package
 ```
 
+This produces an executable JAR: `target/modresorts-2.0.0.jar`
 
-### Building Using Gradle
-This application can also be built using gradle:
+## Running Locally
 
-```
-./gradlew clean build
-```
+```bash
+export AWS_REGION=us-east-1
+export S3_BUCKET_NAME=my-bucket
+export DATABASE_URL=jdbc:postgresql://localhost:5432/modresorts
+export DATABASE_USERNAME=modresorts
+export DATABASE_PASSWORD=changeme
+export REDIS_HOST=localhost
+export REDIS_PORT=6379
 
-## Liberty Versions of ModResorts
-Two Liberty versions of the application are maintained on the following branches:
-
-- `liberty-java8`
-  This branch shows what the application looks like after it has been modernized to Liberty. Comparing this branch to main, you will notice the following changes:
-  - Code changes in some source files (to remove use of WAS APIs)
-  - Addition of the Liberty config file: `src/main/liberty/config/server.xml`. This file is produced by IBM Transformation Advisor and is available in the [migration bundle](#migration-bundle)
-  - A `Containerfile` has also been added to the project root to allow you to build an image and run the application in a container.
-  - The Liberty tools [plugin](https://github.com/OpenLiberty/ci.maven) has been added to the `pom.xml` for convenience of running the application in Liberty. 
-
-- `liberty-java21`
-  This branch shows what the application looks like after it has been modernized to Liberty **AND** upgraded to Java 21. Comparing this branch to main, you will notice all the changes described for the `liberty-java8` branch in addition to:
-  - Code changes in some source files (to fix Java upgrade issues)
-
-## Version 2
-Version 2 of ModResorts contains extra migration issues that need to be addressed when modernizing to Liberty and when upgrading Java. Version 2 can be used for a more complete modernization demo.
-
-Version 2 exists in branches that represent the various stages of modernization:
-
-- `main-v2` 
-  This branch captures the application as a traditional WebSphere Application Server application built with and running on Java 8
-
-- `liberty-java8-v2`
-  This branch captures the application after it has been modernized to Liberty, but still built with and running on Java 8
-
-- `liberty-java21-v2`
-  This branch captures the final state of the application after it has been modernized to Liberty, and upgraded to use Java 21.
-
-In order to build and run Version 2 of the application, you need to install the dependencies in the `dependencies` directory to your local maven repository:
-
-```
-mvn install:install-file -Dfile=dependencies/env-config-1.5.jar -DpomFile=dependencies/env-config-1.5.pom
-mvn install:install-file -Dfile=dependencies/env-config-1.6.jar -DpomFile=dependencies/env-config-1.6.pom
-mvn install:install-file -Dfile=dependencies/env-config-1.7.jar -DpomFile=dependencies/env-config-1.7.pom
+java -jar target/modresorts-2.0.0.jar
 ```
 
+## AWS Deployment
 
-## Deploying the Application to IBM WebSphere Application Server
-There are no special instructions for deploying the application to IBM WebSphere Application Server. There is no configuration required on the application server in order for the application to deploy and function.
+### Prerequisites
+1. **S3 Bucket**: Create an S3 bucket for file storage
+2. **RDS Database**: PostgreSQL or MySQL instance
+3. **ElastiCache Redis**: For distributed session management
+4. **Secrets Manager**: Store API keys and credentials
+5. **IAM Role**: Grant permissions for S3, Secrets Manager, and RDS
 
-It can be deployed using the UI console or using `wsadmin`.
-Please refer to the [documentation](https://www.ibm.com/docs/en/was-nd/9.0.5?topic=applications-how-do-i-deploy) for more details on deploying the application to WebSphere Application Server.
-
-
-
-## Deploying the Application to Liberty
-To deploy the application on Liberty you can do one of the following:
-- Install the Liberty tools IDE plugin (VSCode and Eclipse available)
-- Add the Liberty tools plugin to the build configuration. Note, for convenience, the Liberty tools plugin is already added to the `pom.xml` in the `liberty-` branches. Liberty can be launched in dev mode with the following command:
+### IAM Permissions Required
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::modresorts-data/*",
+        "arn:aws:s3:::modresorts-data"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:GetSecretValue"
+      ],
+      "Resource": "arn:aws:secretsmanager:*:*:secret:modresorts/*"
+    }
+  ]
+}
 ```
-mvn liberty:dev
-```
-- Run the Liberty tools directly from the command line:
-```
-mvn io.openliberty.tools:liberty-maven-plugin:3.10.2:dev
-```
-- Build and drop the WAR file into Liberty installation.
 
-For more on Liberty Dev Tools please refer to [Develop with Liberty Tools](https://openliberty.io/docs/latest/develop-liberty-tools.html)
+## Health Check Endpoint
 
-## Building and Running the Application a Liberty Container
-A Containerfile exists in the `liberty-` branches. The Containerfile is produced by IBM Transformation Advisor and is available in the [migration bundle](#migration-bundle). It can be used to build an image and run the application in a container. You can build the image as follows:
+The application exposes health check endpoints for AWS load balancers:
 
-```
-docker build -t modresorts:latest -f Containerfile .
-```
+- **Health**: `http://localhost:8080/actuator/health`
+- **Info**: `http://localhost:8080/actuator/info`
 
-You can run the container as follows:
+## Migration from WebSphere
 
-```
-docker run --rm -d -p 9080:9080 modresorts:latest
-```
+### Removed Dependencies
+- `com.ibm.websphere.appserver:was_public`
+- `javax:javaee-api` (replaced with Spring Boot starters)
 
-## Migration Bundle
-The `migration_bundle` directory contains a migration bundle for ModResorts created by [IBM Transformation Advisor](https://www.ibm.com/products/cloud-pak-for-applications/transformation-advisor). It contains an analysis of the application and artifacts that accelerate modernization to Liberty and cloud migration.
+### Replaced Components
+- **EJB 2.x** → Spring Components with `@Component`
+- **WebSphere Session Management** → Spring Session Redis
+- **Direct JDBC** → HikariCP Connection Pooling
+- **Local File System** → Amazon S3
+- **Hardcoded Secrets** → AWS Secrets Manager
+
+## Troubleshooting
+
+### S3 Access Issues
+- Verify IAM role has S3 permissions
+- Check bucket name and region configuration
+- Ensure bucket exists and is accessible
+
+### Database Connection Issues
+- Verify RDS security group allows inbound connections
+- Check DATABASE_URL format
+- Verify HikariCP pool configuration
+
+### Session Management Issues
+- Verify Redis/ElastiCache is accessible
+- Check REDIS_HOST and REDIS_PORT
+- Ensure security group allows Redis port (6379)
+
+## Next Steps
+
+This application is now ready for containerization. The next phase will create:
+- Dockerfile for container image
+- Kubernetes manifests for EKS deployment
+- Terraform/CloudFormation for infrastructure provisioning
