@@ -1,8 +1,7 @@
 package com.acme.modres.db;
 
 import javax.annotation.Resource;
-import javax.ejb.Singleton;
-import javax.ejb.Startup;
+import javax.ejb.Stateless;
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -10,8 +9,18 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 
-@Singleton
-@Startup
+/**
+ * Replaced @Singleton with @Stateless to eliminate singleton-based state storage.
+ * For distributed caching in containerized environments, consider integrating
+ * Amazon ElastiCache (Redis) with Spring Cache abstraction to ensure consistency
+ * across horizontally scaled container instances.
+ * 
+ * Configuration example for Redis:
+ * - Set REDIS_HOST environment variable (e.g., your-elasticache-endpoint.cache.amazonaws.com)
+ * - Set REDIS_PORT environment variable (default: 6379)
+ * - Set REDIS_PASSWORD environment variable if authentication is enabled
+ */
+@Stateless
 public class ModResortsCustomerInformation {
   private static final String SELECT_CUSTOMERS_QUERY = "SELECT INFO FROM CUSTOMER";
 
