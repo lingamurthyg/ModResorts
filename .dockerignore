@@ -1,0 +1,57 @@
+# Java Maven project - build artifacts
+target/
+*.war
+*.jar
+*.ear
+
+# Maven wrapper (NEVER include in Docker builds)
+mvnw
+mvnw.cmd
+.mvn/
+
+# Gradle wrapper (NEVER include in Docker builds)
+gradlew
+gradlew.bat
+gradle/
+build.gradle.hideme
+
+# Version control
+.git/
+.gitignore
+.gitattributes
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.classpath
+.project
+.settings/
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Documentation
+*.md
+LICENSE
+CONTRIBUTING.md
+CODEOWNERS
+
+# Test files
+src/test/
+
+# Migration artifacts
+migration-bundle/
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+tmp/
+temp/
