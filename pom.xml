@@ -8,23 +8,27 @@
   <packaging>war</packaging>
   <name>ModResorts</name>
   <properties>
-    <maven.compiler.target>1.8</maven.compiler.target>
-    <maven.compiler.source>1.8</maven.compiler.source>
+    <!-- Updated from 1.8 to 17 for Java 17 compatibility -->
+    <maven.compiler.target>17</maven.compiler.target>
+    <maven.compiler.source>17</maven.compiler.source>
+    <java.version>17</java.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.version>2.0.0</project.version>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
   </properties>
   <dependencies>
+    <!-- Updated from javaee-api 7.0 to jakarta.jakartaee-api 10.0.0 for Java 17 / Jakarta EE 10 compatibility -->
     <dependency>
-      <groupId>javax</groupId>
-      <artifactId>javaee-api</artifactId>
-      <version>7.0</version>
+      <groupId>jakarta.platform</groupId>
+      <artifactId>jakarta.jakartaee-api</artifactId>
+      <version>10.0.0</version>
       <scope>provided</scope>
     </dependency>
+    <!-- Jakarta Inject API for @Inject annotation support -->
     <dependency>
-      <groupId>com.ibm.websphere.appserver</groupId>
-      <artifactId>was_public</artifactId>
-      <version>9.0.0</version>
+      <groupId>jakarta.inject</groupId>
+      <artifactId>jakarta.inject-api</artifactId>
+      <version>2.0.1</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
@@ -50,47 +54,75 @@
       <version>5.8.0</version>
       <scope>test</scope>
     </dependency>
+    <!-- Updated spring-test from 5.3.20 to 6.1.6 for Java 17 compatibility -->
     <dependency>
       <groupId>org.springframework</groupId>
       <artifactId>spring-test</artifactId>
-      <version>5.3.20</version>
+      <version>6.1.6</version>
       <scope>test</scope>
     </dependency>
 
-   
+    <!-- Updated log4j-core from 2.14.1 (CVE-2021-44228 Log4Shell) to 2.23.1 -->
     <dependency>
       <groupId>org.apache.logging.log4j</groupId>
       <artifactId>log4j-core</artifactId>
-      <version>2.14.1</version>
+      <version>2.23.1</version>
     </dependency>
 
-   
+    <!-- Updated commons-collections from 3.2.1 (CVE-2015-6420) to 3.2.2 -->
     <dependency>
       <groupId>commons-collections</groupId>
       <artifactId>commons-collections</artifactId>
-      <version>3.2.1</version>
+      <version>3.2.2</version>
     </dependency>
 
-    
+    <!-- Updated spring-webmvc from 5.3.17 to 6.1.6 for Java 17 compatibility -->
     <dependency>
       <groupId>org.springframework</groupId>
       <artifactId>spring-webmvc</artifactId>
-      <version>5.3.17</version>
+      <version>6.1.6</version>
     </dependency>
 
-   
+    <!-- Updated jackson-databind from 2.9.10 (multiple CVEs) to 2.17.0 for Java 17 compatibility -->
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
-      <version>2.9.10</version>
+      <version>2.17.0</version>
     </dependency>
 
   </dependencies>
   <build>
     <plugins>
+      <!-- Added maven-compiler-plugin with Java 17 configuration -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.11.0</version>
+        <configuration>
+          <source>17</source>
+          <target>17</target>
+          <release>17</release>
+          <compilerArgs>
+            <arg>--add-opens=java.base/java.lang=ALL-UNNAMED</arg>
+            <arg>--add-opens=java.base/java.util=ALL-UNNAMED</arg>
+          </compilerArgs>
+        </configuration>
+      </plugin>
+      <!-- Updated maven-surefire-plugin for Java 17 compatibility -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.1.2</version>
+        <configuration>
+          <argLine>
+            --add-opens java.base/java.lang=ALL-UNNAMED
+            --add-opens java.base/java.util=ALL-UNNAMED
+          </argLine>
+        </configuration>
+      </plugin>
       <plugin>
         <artifactId>maven-war-plugin</artifactId>
-        <version>3.1.0</version>
+        <version>3.4.0</version>
         <configuration>
           <failOnMissingWebXml>false</failOnMissingWebXml>
           <packagingExcludes>pom.xml, src/, target/, WebContent/</packagingExcludes>
@@ -105,7 +137,7 @@
       </plugin>
       <plugin>
         <artifactId>maven-resources-plugin</artifactId>
-        <version>3.2.0</version>
+        <version>3.3.1</version>
         <executions>
           <execution>
             <id>copy-resources</id>
