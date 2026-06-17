@@ -39,6 +39,12 @@ import javax.naming.InitialContext;
 import javax.naming.NamingException;
 import javax.servlet.annotation.WebServlet;
 
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.ssm.SsmClient;
+import software.amazon.awssdk.services.ssm.model.GetParameterRequest;
+import software.amazon.awssdk.services.ssm.model.GetParameterResponse;
+
 @WebServlet({ "/resorts/weather" })
 public class WeatherServlet extends HttpServlet {
   private static final long serialVersionUID = 1L;
@@ -46,10 +52,9 @@ public class WeatherServlet extends HttpServlet {
   @Inject
   private ModResortsCustomerInformation customerInfo;
 
-  // local OS environment variable key name. The key value should provide an API
-  // key that will be used to
-  // get weather information from site: http://www.wunderground.com
-  private static final String WEATHER_API_KEY = "WEATHER_API_KEY";
+  // AWS Systems Manager Parameter Store key for weather API key
+  private static final String WEATHER_API_KEY_PARAM = System.getenv().getOrDefault("WEATHER_API_KEY_PARAM", "/modresorts/weather/api-key");
+  private static final String AWS_REGION = System.getenv().getOrDefault("AWS_REGION", "us-east-1");
 
   private static final Logger logger = Logger.getLogger(WeatherServlet.class.getName());
 
@@ -58,9 +63,17 @@ public class WeatherServlet extends HttpServlet {
   MBeanServer server;
   ObjectName weatherON;
   ObjectInstance mbean;
+  
+  private SsmClient ssmClient;
 
   @Override
   public void init() {
+    // Initialize AWS Systems Manager client for parameter store
+    ssmClient = SsmClient.builder()
+        .region(Region.of(AWS_REGION))
+        .credentialsProvider(DefaultCredentialsProvider.create())
+        .build();
+    
     server = ManagementFactory.getPlatformMBeanServer();
     try {
       weatherON = new ObjectName("com.acme.modres.mbean:name=appInfo");
@@ -80,6 +93,11 @@ public class WeatherServlet extends HttpServlet {
 
   @Override
   public void destroy() {
+    // Close SSM client to prevent resource leaks
+    if (ssmClient != null) {
+      ssmClient.close();
+    }
+    
     if (mbean != null) {
       try {
         server.unregisterMBean(weatherON);
@@ -106,7 +124,8 @@ public class WeatherServlet extends HttpServlet {
     String city = request.getParameter("selectedCity");
     logger.log(Level.FINE, "requested city is " + city);
 
-    String weatherAPIKey = System.getenv(WEATHER_API_KEY);
+    // Retrieve API key from AWS Systems Manager Parameter Store
+    String weatherAPIKey = getWeatherApiKeyFromParameterStore();
     String mockedKey = mockKey(weatherAPIKey);
     logger.log(Level.FINE, "weatherAPIKey is " + mockedKey);
 
@@ -117,6 +136,29 @@ public class WeatherServlet extends HttpServlet {
       logger.info(
           "weatherAPIKey is not found, will provide the weather data dated August 10th, 2018 for the city " + city);
       getDefaultWeatherData(city, response);
+    }
+  }
+  
+  /**
+   * Retrieve Weather API key from AWS Systems Manager Parameter Store
+   * This provides centralized, secure configuration management
+   */
+  private String getWeatherApiKeyFromParameterStore() {
+    try {
+      GetParameterRequest parameterRequest = GetParameterRequest.builder()
+          .name(WEATHER_API_KEY_PARAM)
+          .withDecryption(true) // Decrypt if it's a SecureString
+          .build();
+      
+      GetParameterResponse parameterResponse = ssmClient.getParameter(parameterRequest);
+      String apiKey = parameterResponse.parameter().value();
+      
+      logger.info("Successfully retrieved weather API key from Parameter Store");
+      return apiKey;
+    } catch (Exception e) {
+      logger.warning("Failed to retrieve weather API key from Parameter Store: " + e.getMessage());
+      // Fall back to environment variable for backward compatibility
+      return System.getenv("WEATHER_API_KEY");
     }
   }
 
